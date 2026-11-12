@@ -17,6 +17,21 @@ int* cell_write_counts;// # of particles written to each cell in the cell_partic
 void* scan_temp = nullptr;
 size_t scan_bytes = 0;
 
+// Profiling
+cudaEvent_t events[7];
+
+double stage_times[6] = {0};
+int profile_steps = 0;
+
+const char* stage_names[6] = {
+    "Reset",
+    "Count",
+    "Prefix Sum",
+    "Scatter",
+    "Compute Forces",
+    "Move"
+};
+
 // & means we directly change the particle in the GPU memory,
 // instead of copying it to the CPU and changing it there
 // __device__: function runs on GPU and can only be called from the GPU
@@ -180,6 +195,10 @@ void init_simulation(particle_t* parts, int num_parts, double size) {
 
     // Allocate once
     cudaMalloc(&scan_temp, scan_bytes);
+
+    for (int i = 0; i < 7; i++) {
+    cudaEventCreate(&events[i]);
+    }
 }
 
 void simulate_one_step(particle_t* parts, int num_parts, double size) {
@@ -189,41 +208,86 @@ void simulate_one_step(particle_t* parts, int num_parts, double size) {
     // Compute forces
     // CUDA kernel launch: kernel<<<number_of_blocks, threads_per_block>>>(arguments);
 
-    cudaMemset(cell_counts, 0, num_cells * sizeof(int));
-    cudaMemset(cell_write_counts, 0, num_cells * sizeof(int));
+    // cudaMemset(cell_counts, 0, num_cells * sizeof(int));
+    // cudaMemset(cell_write_counts, 0, num_cells * sizeof(int));
 
-    //each particle computes which cell it belongs to and increments the count of that cell
-    compute_cell_gpu<<<blks, NUM_THREADS>>>(parts, num_parts, num_cells_per_row, cell_counts);
-    // compute the starting index of each cell in the cell_particles array
-    compute_offsets_gpu();
-    // scatter the particles into the cell_particles array according to their cell
-    scatter_particles_gpu<<<blks, NUM_THREADS>>>(parts, num_parts, num_cells_per_row, cell_counts, cell_offsets, cell_particles, cell_write_counts);
-    
-    cudaEvent_t start, end;
-    cudaEventCreate(&start);
-    cudaEventCreate(&end);
-
-    cudaEventRecord(start);
-
-    compute_forces_gpu<<<blks, NUM_THREADS>>>(
-    parts, num_parts, num_cells_per_row,
-    cell_counts, cell_offsets, cell_particles, cell_write_counts
-    );
-
-    cudaEventRecord(end);
-    cudaEventSynchronize(end);
-
-    float elapsed_ms = 0;
-    cudaEventElapsedTime(&elapsed_ms, start, end);
-
-    printf("Compute Forces: %.4f ms\n", elapsed_ms);
-
-    cudaEventDestroy(start);
-    cudaEventDestroy(end);
-    
+    // //each particle computes which cell it belongs to and increments the count of that cell
+    // compute_cell_gpu<<<blks, NUM_THREADS>>>(parts, num_parts, num_cells_per_row, cell_counts);
+    // // compute the starting index of each cell in the cell_particles array
+    // compute_offsets_gpu();
+    // // scatter the particles into the cell_particles array according to their cell
+    // scatter_particles_gpu<<<blks, NUM_THREADS>>>(parts, num_parts, num_cells_per_row, cell_counts, cell_offsets, cell_particles, cell_write_counts);
     // // compute the forces on each particle by looking at its neighboring cells
     // compute_forces_gpu<<<blks, NUM_THREADS>>>(parts, num_parts, num_cells_per_row, cell_counts, cell_offsets, cell_particles, cell_write_counts);
 
-    // Move particles
-    move_gpu<<<blks, NUM_THREADS>>>(parts, num_parts, size);
+    // // Move particles
+    // move_gpu<<<blks, NUM_THREADS>>>(parts, num_parts, size);
+
+    cudaEventRecord(events[0]);
+
+    // Stage 0: Reset
+    cudaMemset(cell_counts, 0, num_cells * sizeof(int));
+    cudaMemset(cell_write_counts, 0, num_cells * sizeof(int));
+    cudaEventRecord(events[1]);
+
+    // Stage 1: Count
+    compute_cell_gpu<<<blks, NUM_THREADS>>>(
+        parts, num_parts, num_cells_per_row, cell_counts
+    );
+    cudaEventRecord(events[2]);
+
+    // Stage 2: Prefix Sum
+    compute_offsets_gpu();
+    cudaEventRecord(events[3]);
+
+    // Stage 3: Scatter
+    scatter_particles_gpu<<<blks, NUM_THREADS>>>(
+        parts, num_parts, num_cells_per_row,
+        cell_counts, cell_offsets,
+        cell_particles, cell_write_counts
+    );
+    cudaEventRecord(events[4]);
+
+    // Stage 4: Compute Forces
+    compute_forces_gpu<<<blks, NUM_THREADS>>>(
+        parts, num_parts, num_cells_per_row,
+        cell_counts, cell_offsets,
+        cell_particles, cell_write_counts
+    );
+    cudaEventRecord(events[5]);
+
+    // Stage 5: Move
+    move_gpu<<<blks, NUM_THREADS>>>(
+        parts, num_parts, size
+    );
+    cudaEventRecord(events[6]);
+
+    // Wait until all stages finish
+    cudaEventSynchronize(events[6]);
+
+    // Accumulate GPU time for each stage
+    for (int i = 0; i < 6; i++) {
+        float ms = 0;
+        cudaEventElapsedTime(&ms, events[i], events[i + 1]);
+        stage_times[i] += ms;
+    }
+
+    profile_steps++;
+}
+
+void print_profile() {
+    printf("\n=== Runtime Breakdown ===\n");
+
+    if (profile_steps == 0) return;
+
+    double total = 0;
+
+    for (int i = 0; i < 6; i++) {
+        double avg = stage_times[i] / profile_steps;
+        total += avg;
+
+        printf("%-16s: %.6f ms\n", stage_names[i], avg);
+    }
+
+    printf("GPU total/step  : %.6f ms\n", total);
 }

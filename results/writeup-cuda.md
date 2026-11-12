@@ -51,13 +51,10 @@ Additionally, atomicAdd() is used in compute_cell_gpu and scatter_particles_gpu
 to prevent race conditions when multiple threads update the same cell.
 
 # 3.Description of the design choices that I tried and how did they affect the performance.
-First, I assigned each particle to a CUDA thread to compute its cell ID in parallel. Each thread uses atomicAdd() to update the particle count of its corresponding cell.
-
-Second, I used the CUB library to compute an exclusive prefix sum on the GPU, obtaining the starting offset of each cell in the cell_particles array.
-
-Third, I assigned each particle to a CUDA thread again to insert its particle ID into cell_particles. I used an auxiliary array, cell_write_counts, and atomicAdd() to prevent race conditions.
-
-Fourth, I assigned each particle to a CUDA thread to compute its acceleration by checking only the particles in its own cell and the eight neighboring cells. Finally, another CUDA kernel updates each particle's velocity and position.
+- First, I assigned each particle to a CUDA thread to compute its cell ID in parallel. Each thread uses atomicAdd() to update the particle count of its corresponding cell.
+- Second, I used the CUB library to compute an exclusive prefix sum on the GPU, obtaining the starting offset of each cell in the cell_particles array.
+- Third, I assigned each particle to a CUDA thread again to insert its particle ID into cell_particles. I used an auxiliary array, cell_write_counts, and atomicAdd() to prevent race conditions.
+- Fourth, I assigned each particle to a CUDA thread to compute its acceleration by checking only the particles in its own cell and the eight neighboring cells. Finally, another CUDA kernel updates each particle's velocity and position.
 
 Performance Impact: Spatial binning reduces unnecessary particle-pair checks compared with the original (O(N^2)) implementation. My experiments showed a significant reduction in simulation time, especially for larger particle counts. However, building the spatial grid introduces additional overhead, including atomic operations and prefix sum computation.
 
