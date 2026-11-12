@@ -93,7 +93,7 @@ __global__ void scatter_particles_gpu(particle_t* particles, int num_parts, int 
     cell_particles[offset] = tid;
 }
 
-__global__ void compute_forces_gpu(particle_t* particles, int num_parts) {
+__global__ void compute_forces_gpu(particle_t* particles, int num_parts, int num_cells_per_row, int* cell_counts, int* cell_offsets, int* cell_particles, int* cell_write_counts) {
     // Get thread (particle) ID
     int tid = threadIdx.x + blockIdx.x * blockDim.x;
     if (tid >= num_parts) // if the thread ID is larger than the number of particles, return
@@ -198,7 +198,7 @@ void simulate_one_step(particle_t* parts, int num_parts, double size) {
     // scatter the particles into the cell_particles array according to their cell
     scatter_particles_gpu<<<blks, NUM_THREADS>>>(parts, num_parts, num_cells_per_row, cell_counts, cell_offsets, cell_particles, cell_write_counts);
     // compute the forces on each particle by looking at its neighboring cells
-    compute_forces_gpu<<<blks, NUM_THREADS>>>(parts, num_parts);
+    compute_forces_gpu<<<blks, NUM_THREADS>>>(parts, num_parts, num_cells_per_row, cell_counts, cell_offsets, cell_particles, cell_write_counts);
 
     // Move particles
     move_gpu<<<blks, NUM_THREADS>>>(parts, num_parts, size);

@@ -1,8 +1,14 @@
 cmake_minimum_required(VERSION 3.11)
 project(hw2_3)
 enable_language(CUDA)
-set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CXX_STANDARD_REQUIRED YES)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+set(CMAKE_CUDA_STANDARD 17)
+set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+
+# set(CMAKE_CXX_STANDARD 14)
+# set(CMAKE_CXX_STANDARD_REQUIRED YES)
 
 # Group number
 set(GROUP_NAME "None" CACHE STRING "Your group name as it appears on bCourses (no spaces)")
