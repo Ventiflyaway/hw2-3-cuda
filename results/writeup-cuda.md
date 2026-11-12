@@ -61,7 +61,86 @@ Performance Impact: Spatial binning reduces unnecessary particle-pair checks com
 # 4. runtime analysis
 - break down the runtime into computation time, synchronization time and/or communication time 
 - how do they scale with the number of particles?
+![alt text](cuda-breakdown.png)
 
+I used CUDA Events to measure the average execution time of six stages: Reset, Count, Prefix Sum, Scatter, Compute Forces, and Move.
+
+Computation: Compute Forces was the most time-consuming stage, accounting for approximately 51%–63% of the measured stage time.
+Count and Scatter became more expensive as the particle count increased, while Prefix Sum remained relatively stable.
+
+Scaling: The total measured stage time increased from 0.139 ms at 20,000 particles to 0.383 ms at 80,000 particles. Although the particle count increased by a factor of four, the runtime increased by approximately 2.76 times. This suggests improved scaling compared with the original quadratic pairwise algorithm over this measured range.
+
+```text
+=== Runtime Breakdown ===
+Reset           : 0.009607 ms
+Count           : 0.009382 ms
+Prefix Sum      : 0.012004 ms
+Scatter         : 0.010074 ms
+Compute Forces  : 0.055392 ms
+Move            : 0.008371 ms
+GPU total/step  : 0.104829 ms
+Simulation Time = 0.114599 seconds for 1000 particles.
+
+=== Runtime Breakdown ===
+Reset           : 0.009305 ms
+Count           : 0.008871 ms
+Prefix Sum      : 0.011505 ms
+Scatter         : 0.009814 ms
+Compute Forces  : 0.052507 ms
+Move            : 0.008025 ms
+GPU total/step  : 0.100027 ms
+Simulation Time = 0.109855 seconds for 2000 particles.
+
+=== Runtime Breakdown ===
+Reset           : 0.007996 ms
+Count           : 0.007051 ms
+Prefix Sum      : 0.009327 ms
+Scatter         : 0.007759 ms
+Compute Forces  : 0.040136 ms
+Move            : 0.006450 ms
+GPU total/step  : 0.078717 ms
+Simulation Time = 0.0881041 seconds for 4000 particles.
+
+=== Runtime Breakdown ===
+Reset           : 0.009615 ms
+Count           : 0.009213 ms
+Prefix Sum      : 0.012214 ms
+Scatter         : 0.011159 ms
+Compute Forces  : 0.058094 ms
+Move            : 0.009538 ms
+GPU total/step  : 0.109832 ms
+Simulation Time = 0.119683 seconds for 10000 particles.
+
+=== Runtime Breakdown ===
+Reset           : 0.010016 ms
+Count           : 0.011171 ms
+Prefix Sum      : 0.012775 ms
+Scatter         : 0.014197 ms
+Compute Forces  : 0.078561 ms
+Move            : 0.011985 ms
+GPU total/step  : 0.138704 ms
+Simulation Time = 0.148889 seconds for 20000 particles.
+
+=== Runtime Breakdown ===
+Reset           : 0.008545 ms
+Count           : 0.010291 ms
+Prefix Sum      : 0.009410 ms
+Scatter         : 0.016088 ms
+Compute Forces  : 0.094115 ms
+Move            : 0.011466 ms
+GPU total/step  : 0.149915 ms
+Simulation Time = 0.158972 seconds for 40000 particles.
+
+=== Runtime Breakdown ===
+Reset           : 0.016973 ms
+Count           : 0.040120 ms
+Prefix Sum      : 0.012246 ms
+Scatter         : 0.060569 ms
+Compute Forces  : 0.221564 ms
+Move            : 0.031865 ms
+GPU total/step  : 0.383336 ms
+Simulation Time = 0.393201 seconds for 80000 particles.
+```
 
 ------------------------------------------------------------------
 # environment configuration in WSL Ubuntu:
