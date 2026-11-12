@@ -26,15 +26,18 @@ Simulation Time = 5.62793 seconds for 10000 particles.
 I decided to implement Spatial Binning: giving a bounding box of size cutoff, 
 only compute the particles inside that cutoff.
 
-Array is used to acheieve this goal.
+Description of the data structures: Arrays r used to acheieve this goal.
 - cell_counts: number of particles in a cell
 - cell_offset: records the first particle position in a cell
   -  (use Prefix Sum to compute this offset)
 - cell_particles: exact particle in a cell
+- cell_write_counts: record the # of particles insert into one cell, avoid race conditions
 
-
-- a description of the data structures that you used to achieve it.
-
+The implementation details are: 
+- 1.sent each paticle to a thread on GPU,compute their corresponding cell_ids,
+increment the cell_count[cell_id]
+- 2.compute the starting index(cell_offset) according to cell_count
+- 3.add paticles into cell_particles using cell_write_counts
 
 ### results
 - A plot in the log-log scale showing your parallel codes performance 
