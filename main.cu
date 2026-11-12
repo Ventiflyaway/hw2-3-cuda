@@ -140,9 +140,6 @@ int main(int argc, char** argv) {
 
     cudaDeviceSynchronize();
     auto end_time = std::chrono::steady_clock::now();
-
-    cudaDeviceSynchronize();
-    auto end_time = std::chrono::steady_clock::now();
     // Print average GPU time for each stage
     print_profile();
 
