@@ -1,3 +1,9 @@
 build/
 .idea/
 cmake-build-*/
+.vscode/
+
+*.o
+*.out
+*.csv
+*.dat
