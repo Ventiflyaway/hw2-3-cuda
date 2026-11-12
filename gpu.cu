@@ -198,8 +198,31 @@ void simulate_one_step(particle_t* parts, int num_parts, double size) {
     compute_offsets_gpu();
     // scatter the particles into the cell_particles array according to their cell
     scatter_particles_gpu<<<blks, NUM_THREADS>>>(parts, num_parts, num_cells_per_row, cell_counts, cell_offsets, cell_particles, cell_write_counts);
-    // compute the forces on each particle by looking at its neighboring cells
-    compute_forces_gpu<<<blks, NUM_THREADS>>>(parts, num_parts, num_cells_per_row, cell_counts, cell_offsets, cell_particles, cell_write_counts);
+    
+    cudaEvent_t start, end;
+    cudaEventCreate(&start);
+    cudaEventCreate(&end);
+
+    cudaEventRecord(start);
+
+    compute_forces_gpu<<<blks, NUM_THREADS>>>(
+    parts, num_parts, num_cells_per_row,
+    cell_counts, cell_offsets, cell_particles, cell_write_counts
+    );
+
+    cudaEventRecord(end);
+    cudaEventSynchronize(end);
+
+    float elapsed_ms = 0;
+    cudaEventElapsedTime(&elapsed_ms, start, end);
+
+    printf("Compute Forces: %.4f ms\n", elapsed_ms);
+
+    cudaEventDestroy(start);
+    cudaEventDestroy(end);
+    
+    // // compute the forces on each particle by looking at its neighboring cells
+    // compute_forces_gpu<<<blks, NUM_THREADS>>>(parts, num_parts, num_cells_per_row, cell_counts, cell_offsets, cell_particles, cell_write_counts);
 
     // Move particles
     move_gpu<<<blks, NUM_THREADS>>>(parts, num_parts, size);

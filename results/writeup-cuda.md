@@ -40,19 +40,26 @@ increment the cell_count[cell_id]
 - 3.add paticles into cell_particles using cell_write_counts
 
 ### results
-```bash
-Simulation Time = 0.0870033 seconds for 1000 particles.
-Simulation Time = 0.0790949 seconds for 2000 particles.
-Simulation Time = 0.0769166 seconds for 4000 particles.
-Simulation Time = 0.105495 seconds for 10000 particles.
-```
 - A plot in the log-log scale showing your parallel codes performance 
-
-
+![alt text](cuda-log-log-plot.png)
 
 # 2.Description of the synchronization I used in the GPU implementation.
+The synchornization is both at the function calling level and at the atomic change of global variables. 
+For example, particle counts are computed in parallel by compute_cell_gpu.
+The prefix sum is performed only after the counting kernel finishes.
+Additionally, atomicAdd() is used in compute_cell_gpu and scatter_particles_gpu 
+to prevent race conditions when multiple threads update the same cell.
 
 # 3.Description of the design choices that I tried and how did they affect the performance.
+First, I assigned each particle to a CUDA thread to compute its cell ID in parallel. Each thread uses atomicAdd() to update the particle count of its corresponding cell.
+
+Second, I used the CUB library to compute an exclusive prefix sum on the GPU, obtaining the starting offset of each cell in the cell_particles array.
+
+Third, I assigned each particle to a CUDA thread again to insert its particle ID into cell_particles. I used an auxiliary array, cell_write_counts, and atomicAdd() to prevent race conditions.
+
+Fourth, I assigned each particle to a CUDA thread to compute its acceleration by checking only the particles in its own cell and the eight neighboring cells. Finally, another CUDA kernel updates each particle's velocity and position.
+
+Performance Impact: Spatial binning reduces unnecessary particle-pair checks compared with the original (O(N^2)) implementation. My experiments showed a significant reduction in simulation time, especially for larger particle counts. However, building the spatial grid introduces additional overhead, including atomic operations and prefix sum computation.
 
 # 4. runtime analysis
 - break down the runtime into computation time, synchronization time and/or communication time 
