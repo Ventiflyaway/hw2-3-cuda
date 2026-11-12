@@ -14,6 +14,9 @@ int* cell_offsets;// starting index of each cell in the cell_particles array
 int* cell_particles;// particle indices in each cell
 int* cell_write_counts;// # of particles written to each cell in the cell_particles array
 
+void* scan_temp = nullptr;
+size_t scan_bytes = 0;
+
 // & means we directly change the particle in the GPU memory,
 // instead of copying it to the CPU and changing it there
 // __device__: function runs on GPU and can only be called from the GPU
@@ -57,18 +60,9 @@ __global__ void compute_cell_gpu(particle_t* particles, int num_parts, int num_c
     atomicAdd(&cell_counts[cell_id], 1);
 }
 
-void compute_offsets_gpu() {    
-    void* temp = nullptr; // ptr to temp GPU mem space
-    size_t bytes = 0;
-
-    // Compute the size of temporary storage needed for the exclusive scan -> bytes
-    cub::DeviceScan::ExclusiveSum(nullptr, bytes, cell_counts, cell_offsets, num_cells);
-    cudaMalloc(&temp, bytes);
-
-    // Prefix Sum
-    cub::DeviceScan::ExclusiveSum(temp, bytes, cell_counts, cell_offsets, num_cells);
-
-    cudaFree(temp);
+void compute_offsets_gpu() {
+    cub::DeviceScan::ExclusiveSum(scan_temp, scan_bytes,
+        cell_counts, cell_offsets, num_cells);
 }
 
 __global__ void scatter_particles_gpu(particle_t* particles, int num_parts, int num_cells_per_row, int* cell_counts, int* cell_offsets, int* cell_particles, int* cell_write_counts) {
@@ -179,6 +173,13 @@ void init_simulation(particle_t* parts, int num_parts, double size) {
     cudaMalloc(&cell_write_counts, num_cells * sizeof(int));
 
     cudaMemset(cell_counts, 0, num_cells * sizeof(int));
+
+    // Compute the size of temporary storage needed for the exclusive scan -> bytes
+    cub::DeviceScan::ExclusiveSum( nullptr, scan_bytes,
+    cell_counts, cell_offsets, num_cells);
+
+    // Allocate once
+    cudaMalloc(&scan_temp, scan_bytes);
 }
 
 void simulate_one_step(particle_t* parts, int num_parts, double size) {

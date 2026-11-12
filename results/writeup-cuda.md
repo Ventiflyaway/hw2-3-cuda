@@ -40,6 +40,12 @@ increment the cell_count[cell_id]
 - 3.add paticles into cell_particles using cell_write_counts
 
 ### results
+```bash
+Simulation Time = 0.0870033 seconds for 1000 particles.
+Simulation Time = 0.0790949 seconds for 2000 particles.
+Simulation Time = 0.0769166 seconds for 4000 particles.
+Simulation Time = 0.105495 seconds for 10000 particles.
+```
 - A plot in the log-log scale showing your parallel codes performance 
 
 
